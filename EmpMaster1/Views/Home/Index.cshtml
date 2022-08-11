@@ -1,0 +1,347 @@
+﻿@{
+    ViewBag.Title = "Index";
+}
+<div class="container">
+    <h2>Employees Record</h2>
+    <button type="button" class="btn btn-primary" data-toggle="modal" data-target="#myModal" onclick="clearTextBox();">Add New Employee</button><br /><br />
+    <table class="table table-bordered table-hover">
+        <thead>
+            <tr>
+                <th>
+                    Name
+                </th>
+                <th>
+                    Email
+                </th>
+                <th>
+                    Phone Number
+                </th>
+                <th>
+                    Action
+                </th>
+            </tr>
+        </thead>
+        <tbody id="tbody">
+        </tbody>
+    </table>
+</div>
+<div class="modal fade" id="myModal" tabindex="-1" role="dialog" aria-labelledby="myModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <button type="button" class="close" data-dismiss="modal">×</button>
+                <h4 class="modal-title" id="myModalLabel">Add Employee</h4>
+            </div>
+            <div class="modal-body">
+                <form>
+                    <div class="form-group" style="display:none">
+                        <label for="EmployeeId">ID</label>
+                        <input type="text" class="form-control" id="EmployeeID" placeholder="Id" disabled="disabled" />
+                    </div>
+                    <div class="form-group">
+                        <label for="Name">Name</label>
+                        <input type="text" class="form-control" id="Name" placeholder="Name" />
+                    </div>
+                    <div class="form-group">
+                        <label for="Age">Email</label>
+                        <input type="text" class="form-control" id="Email" placeholder="Email" />
+                    </div>
+                    <div class="form-group">
+                        <label for="State">State</label>
+                        <select id="State" class="form-control">
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label for="State">City</label>
+                        <select id="City" class="form-control">
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label for="Country">Phone Number</label>
+                        <input type="number" class="form-control" id="Phone" placeholder="Country" />
+                    </div>
+                    <div class="form-group">
+                        <label for="Country">Address</label>
+                        <input type="text" class="form-control" id="Address" placeholder="Address" />
+                    </div>
+                    @*<div class="form-group">*@
+                        <label for="Country" class="form-control"><input type="checkbox"  id="Agree"/> Agree</label>
+                        
+                    @*</div>*@
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-primary" id="btnAdd" onclick="return Add();" disabled>Submit</button>
+                <button type="button" class="btn btn-primary" id="btnUpdate" style="display:none;" onclick="Update();">Update</button>
+                <button type="button" class="btn btn-default" data-dismiss="modal">Cancel</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script src="~/Scripts/jquery-3.4.1.js"></script>
+<script src="~/Scripts/bootstrap.js"></script>
+
+<script>
+    var tmp = "";
+    $(document).ready(function () {
+        loadData();
+        $("#State").change(function () {
+            var StateId = parseInt($(this).val());
+
+            if (!isNaN(StateId)) {
+                var ddlState = $('#City');
+                ddlState.empty();
+                ddlState.append($("<option></option>").val('').html('Please wait ...'));
+                $.ajax({
+                    url: "/Home/GetCityList",
+                    type: 'GET',
+                    dataType: 'json',
+                    data: { StateId: StateId },
+                    success: function (d) {
+
+                        ddlState.empty(); // Clear the please wait  
+                        ddlState.append($("<option></option>").val('').html('Select City'));
+                        $.each(d, function (i, states) {
+                            ddlState.append($("<option></option>").val(states.CityId).html(states.CityName));
+                        });
+                        if (tmp != "") {
+                            $('#City').val(tmp);
+                        }
+                    },
+                    error: function () {
+                        alert('Error!');
+                    }
+                });
+            }
+
+
+        });
+        $('#Agree').change(function () {
+            if ($(this).is(':checked')) {
+                $('#btnAdd').prop('disabled', false);
+            }
+            else {
+                $('#btnAdd').prop('disabled', true);
+            }
+        });
+    });
+
+    //load State 
+    var ddlCountry = $('#State');
+    ddlCountry.append($("<option></option>").val('').html('Please Select State'));
+    $.ajax({
+        url: "/Home/GetStateList",
+        type: 'GET',
+        dataType: 'json',
+        success: function (d) {
+            $.each(d, function (i, country) {
+                ddlCountry.append($("<option></option>").val(country.StateId).html(country.Name));
+            });
+        },
+        error: function () {
+            alert('Error!');
+        }
+    });
+
+    //Change State 
+    
+
+    //Load Data function
+    function loadData() {
+        $.ajax({
+            url: "/Home/List",
+            type: "GET",
+            contentType: "application/json;charset=utf-8",
+            dataType: "json",
+            success: function (result) {
+                var html = '';
+                $.each(result, function (key, item) {
+                    html += '<tr>';
+                    //html += '<td>' + item.EmployeeID + '</td>';
+                    html += '<td>' + item.Name + '</td>';
+                    html += '<td>' + item.Email + '</td>';
+                    html += '<td>' + item.Phone_No + '</td>';
+                    html += '<td><a href="#" onclick="return getbyID(' + item.EmployeeID + ')">Edit</a> | <a href="#" onclick="Delele(' + item.EmployeeID + ')">Delete</a></td>';
+                    html += '</tr>';
+                });
+                $("#tbody").html('');
+                $("#tbody").html(html);
+            },
+            error: function (errormessage) {
+                alert(errormessage.responseText);
+            }
+        });
+    }
+
+    //Add Data Function
+    function Add() {
+        var res = validate();
+        if (res == false) {
+            return false;
+        }
+        var Ifagree = $('#Agree').val() == "on" ? 1 : 0;
+        var empObj = {
+            EmployeeID: $('#EmployeeID').val(),
+            Name: $('#Name').val(),
+            Email: $('#Email').val(),
+            State: $('#State').val(),
+            City: $('#City').val(),
+            Phone_No: $('#Phone').val(),
+            Address: $('#Address').val(),
+            Agree: Boolean(Ifagree),
+        };
+        $.ajax({
+            url: "/Home/Add",
+            data: JSON.stringify(empObj),
+            type: "POST",
+            contentType: "application/json;charset=utf-8",
+            dataType: "json",
+            success: function (result) {
+                $('#myModal').modal('hide');
+                loadData();
+                
+            },
+            error: function (errormessage) {
+                alert(errormessage.responseText);
+            }
+        });
+    }
+
+    //Function for getting the Data Based upon Employee ID
+    function getbyID(EmpID) {
+        $('#Name').css('border-color', 'lightgrey');
+        $('#Age').css('border-color', 'lightgrey');
+        $('#State').css('border-color', 'lightgrey');
+        $('#Country').css('border-color', 'lightgrey');
+        $.ajax({
+            url: "/Home/getbyID/" + EmpID,
+            typr: "GET",
+            contentType: "application/json;charset=UTF-8",
+            dataType: "json",
+            success: function (result) {
+                $('#EmployeeID').val(result.EmployeeID);
+                $('#Name').val(result.Name);
+                $('#Email').val(result.Email);
+                $('#Phone').val(result.Phone_No);
+                $('#State').val(result.State)
+                $('#State').trigger("change");
+                tmp = result.City;
+                $('#Address').val(result.Address);
+                $('#Agree').prop('checked', result.Agree);
+                $('#myModal').modal('show');
+                $('#btnUpdate').show();
+                $('#btnAdd').hide();
+            },
+            error: function (errormessage) {
+                alert(errormessage.responseText);
+            }
+        });
+        return false;
+    }
+
+    //function for updating employee's record
+    function Update() {
+        var res = validate();
+        if (res == false) {
+            return false;
+        }
+        var Ifagree = $('#Agree').val() == "on" ? 1 : 0;
+        var empObj = {
+            EmployeeID: $('#EmployeeID').val(),
+            Name: $('#Name').val(),
+            Email: $('#Email').val(),
+            State: $('#State').val(),
+            City: $('#City').val(),
+            Phone_No: $('#Phone').val(),
+            Address: $('#Address').val(),
+            Agree: Ifagree,
+        };
+        $.ajax({
+            url: "/Home/Update",
+            data: JSON.stringify(empObj),
+            type: "POST",
+            contentType: "application/json;charset=utf-8",
+            dataType: "json",
+            success: function (result) {
+                loadData();
+                $('#myModal').modal('hide');
+                $('#EmployeeID').val("");
+                $('#Name').val("");
+                $('#Email').val("");
+                $('#State').val("");
+                $('#City').val("");
+            },
+            error: function (errormessage) {
+                alert(errormessage.responseText);
+            }
+        });
+    }
+
+    //function for deleting employee's record
+    function Delele(ID) {
+        var ans = confirm("Are you sure you want to delete this Record?");
+        if (ans) {
+            $.ajax({
+                url: "/Home/Delete/" + ID,
+                type: "POST",
+                contentType: "application/json;charset=UTF-8",
+                dataType: "json",
+                success: function (result) {
+                    loadData();
+                },
+                error: function (errormessage) {
+                    alert(errormessage.responseText);
+                }
+            });
+        }
+    }
+
+    //Function for clearing the textboxes
+    function clearTextBox() {
+        $('#EmployeeID').val("");
+        $('#Name').val("");
+        $('#Age').val("");
+        $('#State').val("");
+        $('#Country').val("");
+        $('#btnUpdate').hide();
+        $('#btnAdd').show();
+        $('#Name').css('border-color', 'lightgrey');
+        $('#Email').css('border-color', 'lightgrey');
+        $('#State').css('border-color', 'lightgrey');
+        $('#City').css('border-color', 'lightgrey');
+    }
+    //Valdidation using jquery
+    function validate() {
+        var isValid = true;
+        if ($('#Name').val().trim() == "") {
+            $('#Name').css('border-color', 'Red');
+            isValid = false;
+        }
+        else {
+            $('#Name').css('border-color', 'lightgrey');
+        }
+        if ($('#Email').val().trim() == "") {
+            $('#Email').css('border-color', 'Red');
+            isValid = false;
+        }
+        else {
+            $('#Email').css('border-color', 'lightgrey');
+        }
+        if ($('#State').val().trim() == "") {
+            $('#State').css('border-color', 'Red');
+            isValid = false;
+        }
+        else {
+            $('#State').css('border-color', 'lightgrey');
+        }
+        if ($('#City').val().trim() == "") {
+            $('#City').css('border-color', 'Red');
+            isValid = false;
+        }
+        else {
+            $('#City').css('border-color', 'lightgrey');
+        }
+        return isValid;
+    }
+</script>
